@@ -133,7 +133,8 @@ app.get('/api/timeout', async (req, res) => {
     }
 });
 ```
-Após a correção, obtemos a seguinte resposta ao invocar o serviço. <br> <br>
+Após a correção, obtemos a seguinte resposta ao invocar o serviço.
+
 ![timeout-test1](https://github.com/user-attachments/assets/732af54d-10c7-4cbd-ac47-c6c9f855cbae) <br> <br>
 ![timeout-test2](https://github.com/user-attachments/assets/b2db7a64-a816-4e39-806a-d46baf123f88)
 
@@ -214,7 +215,7 @@ Partindo para a função:
 ```javascript
 //Função para exceder o limite de requisições
 async function simulateRateLimit() {
-    const axios = require('axios'); // Biblioteca para realizar requisições HTTP
+    const axios = require('axios'); // Biblioteca responsável por realizar requisições HTTP
     const url = `http://localhost:${port}/api/ratelimit`;
 
     for (let i = 1; i <= 101; i++) { //Laço de 1 a 101 (excedente a 100)
@@ -228,9 +229,12 @@ async function simulateRateLimit() {
 }
 ```
 Essa função pode ser adicionada ao final do código para que seja chamada de forma automática, executando assim que o servidor inicia, como pode não ser adicionada e só devolva a mensagem quando de fato o número de requisições for superior a 100.
-Foi utilizado um laço de repetição para contar 101 requisições, trazendo o seguinte resultado: <br> <br> 
-![ratelimit-test1](https://github.com/user-attachments/assets/359610d0-7e21-4dcf-8d79-f634b7b153b3) <br> <br>
-E após o 101° "refresh" na web, o resultado foi esse: <br> <br>
+Foi utilizado um laço de repetição para contar 101 requisições, trazendo o seguinte resultado:
+
+![ratelimit-test1](https://github.com/user-attachments/assets/359610d0-7e21-4dcf-8d79-f634b7b153b3)
+
+E após o 101° "refresh" na web, o resultado foi esse:
+
 ![ratelimit-test2](https://github.com/user-attachments/assets/e044b57e-54de-4d5a-8c7c-2c5423f8028b)
 
 ---
@@ -291,14 +295,38 @@ Aumentar quantidade de chamadas simultâneas e avaliar o comportamento.
 
 **BÔNUS**: implementar método que utilizando threads para realizar as chamadas e logar na tela 
 
+---
+Antes de qualquer alteração no código, ao invocar o serviço via CMD e HTTP, a resposta obtida é a seguinte:
 
+![bulkhead-test1](https://github.com/user-attachments/assets/32728ed7-f52d-4708-b8db-51ea4a8559e2)
+
+![bulkhead-test2](https://github.com/user-attachments/assets/b7cb0d88-c571-4095-972d-e9bb3bb92b12)
+
+Agora, para aumentar o número de chamadas simultâneas ao serviço, basta alterar o número na constante "bulkheadPolicy", definido como 2, para qualquer número superior. Utilizei o 5 para delimitar o número de chamadas simultâneas.
+```javascript
+const bulkheadPolicy = bulkhead(5);
 ```
-// INSIRA SUA ANÁLISE OU PARECER ABAIXO
+A função a ser utilizada para avaliar o comportamento do serviço foi chamada de "simulateRequests", que define um número maior que cinco requisições HTTP, cria uma array de "promises", onde cada promise irá realizar uma requisição, com apoio da biblioteca "axios". O resultado de cada requisição é registrado no console, podendo ser uma mensagem de erro ou de sucesso.
+```javascript
+async function simulateRequests() {
+    const url = 'http://localhost:8080/api/bulkhead';
+    const totalRequests = 10; //Definindo o total de requisições
 
+    const promises = Array.from({length: totalRequests }, (_, i) =>
+        axios.get(url)
+            .then((res) => console.log(`Request ${i + 1}: ${res.data}`))
+            .catch((err) => console.error(`Request ${i + 1}: ${err.response?.data || err.message}`))
+    );
+    await Promise.all(promises);
+}
 
-
+simulateRequests();//Função será chamada logo ao iniciar o servidor
 ```
+Assim que o servidor é iniciado no prompt de comando, recebemos as seguintes respostas:
 
+![bulkhead-test3](https://github.com/user-attachments/assets/14588c5b-d2a9-4edd-a056-b17fdfacc949)
+
+![bulkhead-test4](https://github.com/user-attachments/assets/dfa5899f-c62a-4155-8472-999fb3f9d168)
 
 ---
 ### 2.4 Circuit Breaker
@@ -373,12 +401,24 @@ curl localhost:8080/api/circuitbreaker
 Ajustar o o percentual de falhas para que o circuit breaker obtenha sucesso ao receber as requisições após sua abertura.
 Observar comportamento do circuito no console.
 
+---
+Invocando o serviço no console, inicialmente recebemos uma mensagem de sucesso, e logo após a primeira requisição já nos é devolvida a mensagem de erro.
+
+![circuitbreaker-test1](https://github.com/user-attachments/assets/308c3535-d8ef-4c7c-808f-1f2924375d84)
+
+![circuitbreaker-test2](https://github.com/user-attachments/assets/5e090cf1-1734-40f3-b7d7-cf1250df7269)
+
+Para ajustar o percentual de falhas e fazer com que o circuit breaker volte a registrar sucesso, precisamos alterar o parâmetro da constante "shoudFail", já que a função matemática atual simula 20% de falhas. Para isso, alteramos o número da função de "0.8" para "1".
+```javascript
+const shouldFail = Math.random() > 1;
 ```
-// INSIRA SUA ANÁLISE OU PARECER ABAIXO
+Após o ajuste, o terminal do console registrou as seguintes respostas após um laço de 10 requisições.
 
+![circuitbreaker-test3](https://github.com/user-attachments/assets/df584137-7be1-4486-b062-cc1296ba9874)
 
+![circuitbreaker-test4](https://github.com/user-attachments/assets/729791e4-082f-4bfd-b916-345aefb86d2c)
 
-```
+Como o percentual de falhas foi ajustado para 0%, uma vez que a função "Math.random()" jamais retornará um número maior que 0, a taxa de sucesso ao receber as requisições é de 100%.
 
 ---
 ### 2.5 Health Check
@@ -468,6 +508,12 @@ curl http://localhost:8080/health/readiness
 ```sh
 Readiness check passed
 ```
+---
+Segue terminal do console após realizar cada uma das requisições manuais:
+
+![health-test](https://github.com/user-attachments/assets/577406db-7ebe-4d2f-9650-d81b910ca5c6)
+
+---
 #### 2.5.1 Exemplo de configuração de Probes no Kubernetes (Opcional)
 Para utilizar esses endpoints como probes no Kubernetes, você pode configurar o `deployment.yaml` da seguinte maneira:
 
