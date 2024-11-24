@@ -110,13 +110,32 @@ Ajustar configurações de timeout e corrigir erro de timeout execedido ao invoc
 
 ![Screen Shot 2024-09-13 at 21 42 04](https://github.com/user-attachments/assets/a451d1a1-ef3f-4116-8ab0-246d6548b7a3)
 
+---
+A função "externalService" define um tempo de 5s para concluir a execução, enquanto a função "timeoutPromise" define um limite de 3 segundos que, quando ultrapassado, rejeita e chama a mensagem de erro.
+Esse problema pode ser resolvido alterando o tempo de uma das funções para que ambas entrem em conformidade, ou seja, o tempo da função "externalService" pode ser alterado para um número menor que o da função "timeoutPromise", assim como o tempo da função timeoutPromise pode ser alterado para um número superior a da função "externalService".
+
+Exemplo:
+```javascript
+async function externalService() {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve('Resposta da chamada externa');
+        }, 2000); 
+    });
+}
+
+app.get('/api/timeout', async (req, res) => {
+    try {
+        const result = await timeoutPromise(3000, externalService());
+        res.send(result);
+    } catch (error) {
+        res.status(500).send(`Erro: ${error.message}`);
+    }
+});
 ```
-// INSIRA SUA ANÁLISE OU PARECER ABAIXO
-
-
-
-```
-
+Após a correção, obtemos a seguinte resposta ao invocar o serviço. <br> <br>
+![timeout-test1](https://github.com/user-attachments/assets/732af54d-10c7-4cbd-ac47-c6c9f855cbae) <br> <br>
+![timeout-test2](https://github.com/user-attachments/assets/b2db7a64-a816-4e39-806a-d46baf123f88)
 
 ---
 ### 2.2 Rate Limit
@@ -127,6 +146,7 @@ Crie um arquivo chamado **`server-ratelimit.js`**:
 ```javascript
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+![timeout-test1](https://github.com/user-attachments/assets/0b6303fe-9e84-4e63-9b8f-d57a01fdb016)
 
 const app = express();
 const port = 8080;
@@ -176,14 +196,42 @@ curl localhost:8080/api/ratelimit
 Alterar limite de requisições permitidas para 100 num intervalo de 1 minuto e escrever uma função para simular o erro de Rate Limit.
 ![Screen Shot 2024-09-13 at 22 51 23](https://github.com/user-attachments/assets/6407456d-9bb5-41bb-ba17-9cc4a5272d29)
 
-
+---
+Primeiro, para alterar o limite de requisições, é necessário alterar o valor de "5" para "100" no parâmetro "max" da MiddleWare "rateLimit" 
+```javascript
+const limiter = rateLimit({
+    windowMs: 60 * 1000,  // 1 minuto
+    max: 100,  // Limite de 5 requisições
+    message: 'Você excedeu o limite de requisições, tente novamente mais tarde.',
+});
 ```
-// INSIRA SUA ANÁLISE OU PARECER ABAIXO
-
-
-
+Depois, a função a ser escrita para simular o erro foi chamada de "simulateRateLimit". Essa função necessita da biblioteca "axios" instalada.
+```sh
+cd sre-samples-node
+npm install axios
 ```
+Partindo para a função:
+```javascript
+//Função para exceder o limite de requisições
+async function simulateRateLimit() {
+    const axios = require('axios'); // Biblioteca para realizar requisições HTTP
+    const url = `http://localhost:${port}/api/ratelimit`;
 
+    for (let i = 1; i <= 101; i++) { //Laço de 1 a 101 (excedente a 100)
+        try {
+            const response = await axios.get(url);
+            console.log(`Requisição ${i}: ${response.data}`);
+        } catch (error) {
+            console.error(`Requisição ${i}: ${error.response?.data || error.message}`);
+        }
+    }
+}
+```
+Essa função pode ser adicionada ao final do código para que seja chamada de forma automática, executando assim que o servidor inicia, como pode não ser adicionada e só devolva a mensagem quando de fato o número de requisições for superior a 100.
+Foi utilizado um laço de repetição para contar 101 requisições, trazendo o seguinte resultado: <br> <br> 
+![ratelimit-test1](https://github.com/user-attachments/assets/359610d0-7e21-4dcf-8d79-f634b7b153b3) <br> <br>
+E após o 101° "refresh" na web, o resultado foi esse: <br> <br>
+![ratelimit-test2](https://github.com/user-attachments/assets/e044b57e-54de-4d5a-8c7c-2c5423f8028b)
 
 ---
 ### 2.3 Bulkhead
